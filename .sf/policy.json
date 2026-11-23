@@ -1,0 +1,10 @@
+{
+  "banner_refs": [
+    "app.py"
+  ],
+  "allow": {
+    "subprocess": [
+      "tests/"
+    ]
+  }
+}

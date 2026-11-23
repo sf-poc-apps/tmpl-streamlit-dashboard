@@ -1,0 +1,40 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  policy:
+    name: policy-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .sf/policy_scan.py
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+  container:
+    name: container-smoke
+    needs: [policy, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t app:ci .
+      - run: |
+          docker run -d -p 8080:8080 -e PORT=8080 -e SF_ENV=ci --name app app:ci
+          for i in $(seq 1 45); do curl -fsS http://localhost:8080/_stcore/health && exit 0; sleep 2; done
+          docker logs app; exit 1
